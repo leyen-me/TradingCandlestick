@@ -8,15 +8,23 @@ from config import SYMBOL
 from dotenv import load_dotenv
 import os
 import logging
+from patterns.hammer_pattern import HammerPatternDetector
+from notifications.email_notifier import EmailNotifier
 
 # 配置日志
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
+
 # 加载环境变量
 load_dotenv()
 logger.info("环境变量加载完成")
+
+# 初始化模式检测器和邮件通知器
+hammer_detector = HammerPatternDetector()
+email_notifier = EmailNotifier()
 
 # 数据库配置
 DB_CONFIG = {
@@ -35,7 +43,6 @@ DB_CONFIG = {
 logger.info(
     f"数据库配置: host={DB_CONFIG['host']}, user={DB_CONFIG['user']}, db={DB_CONFIG['db']}")
 
-
 # 初始化数据库连接
 def get_db_connection():
     try:
@@ -46,26 +53,27 @@ def get_db_connection():
         logger.error("错误详情:", exc_info=True)
         raise
 
-
-def save_quote_data(symbol: str, event: PushQuote):
+def save_candlestick_data(symbol: str, event: PushCandlestick):
     try:
+        # 保存K线数据到数据库
         conn = get_db_connection()
         with conn.cursor() as cursor:
             sql = """
-            INSERT INTO t_quotes (
-                stock_code, last_done, open, high, low, volume, turnover,
-                trade_status, current_volume, current_turnover, timestamp
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO t_candlesticks (
+                stock_code, period, is_confirmed, open, high, low, close, volume, turnover,
+                timestamp
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             cursor.execute(sql, (
-                symbol, event.last_done, event.open, event.high, event.low,
-                event.volume, event.turnover, event.trade_status,
-                event.current_volume, event.current_turnover, datetime.now()
-            ))
+                    symbol, 'Min_2', event.is_confirmed, event.candlestick.open, 
+                    event.candlestick.high, event.candlestick.low, event.candlestick.close, 
+                    event.candlestick.volume, event.candlestick.turnover, 
+                    event.candlestick.timestamp
+                ))
         conn.commit()
     except Exception as e:
-        logger.error(f"保存行情数据失败: {e}")
-        logger.error(f"错误详情: {str(e)}", exc_info=True)
+        logger.error(f"处理K线数据时出错: {e}")
+        logger.error("错误详情:", exc_info=True)
     finally:
         try:
             conn.close()
@@ -81,23 +89,26 @@ quote_ctx = QuoteContext(config)
 logger.info("QuoteContext 创建完成")
 
 def on_candlestick(symbol: str, event: PushCandlestick):
-    try:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            sql = """
-            INSERT INTO t_candlesticks (
-                stock_code, period, is_confirmed, open, high, low, close, volume, turnover,
-                timestamp
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            cursor.execute(sql, (
-                    symbol, 'Min_2', event.is_confirmed, event.candlestick.open, event.candlestick.high, event.candlestick.low, event.candlestick.close, event.candlestick.volume, event.candlestick.turnover, event.candlestick.timestamp
-                ))
-        conn.commit()
-    except Exception as e:
-        print(f"Error saving candlestick data: {e}")
-    finally:
-        conn.close()
+    
+    # 保存K线数据到数据库
+    save_candlestick_data(symbol, event)
+    
+    # 检测锤子线形态
+    pattern_result = hammer_detector.detect(
+        open_price=event.candlestick.open,
+        high=event.candlestick.high,
+        low=event.candlestick.low,
+        close=event.candlestick.close,
+        volume=event.candlestick.volume,
+        symbol=symbol,
+        timestamp=event.candlestick.timestamp
+    )
+    
+    # 如果检测到形态，发送邮件通知
+    if pattern_result.is_detected:
+        logger.info(f"检测到锤子线形态 - {symbol}, 置信度: {pattern_result.confidence:.2%}")
+        logger.info(f"趋势强度: {pattern_result.additional_info['trend_strength']:.2%}")
+        email_notifier.send_email(f"锤子线形态检测 - {symbol}", pattern_result)
 
 quote_ctx.set_on_candlestick(on_candlestick)
 quote_ctx.subscribe_candlesticks(SYMBOL, Period.Min_2)
