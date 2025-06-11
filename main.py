@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 import os
 import logging
 from patterns.hammer_pattern import HammerPatternDetector
+from patterns.doji_pattern import DojiPatternDetector
+from patterns.inverted_hammer_pattern import InvertedHammerPatternDetector
 from notifications.email_notifier import EmailNotifier
 
 # 配置日志
@@ -24,6 +26,8 @@ logger.info("环境变量加载完成")
 
 # 初始化模式检测器和邮件通知器
 hammer_detector = HammerPatternDetector()
+doji_detector = DojiPatternDetector()
+inverted_hammer_detector = InvertedHammerPatternDetector()
 email_notifier = EmailNotifier()
 
 # 数据库配置
@@ -94,7 +98,7 @@ def on_candlestick(symbol: str, event: PushCandlestick):
     save_candlestick_data(symbol, event)
     
     # 检测锤子线形态
-    pattern_result = hammer_detector.detect(
+    hammer_result = hammer_detector.detect(
         open_price=event.candlestick.open,
         high=event.candlestick.high,
         low=event.candlestick.low,
@@ -104,11 +108,45 @@ def on_candlestick(symbol: str, event: PushCandlestick):
         timestamp=event.candlestick.timestamp
     )
     
-    # 如果检测到形态，发送邮件通知
-    if pattern_result.is_detected:
-        logger.info(f"检测到锤子线形态 - {symbol}, 置信度: {pattern_result.confidence:.2%}")
-        logger.info(f"趋势强度: {pattern_result.additional_info['trend_strength']:.2%}")
-        email_notifier.send_email(f"锤子线形态检测 - {symbol}", pattern_result)
+    # 检测十字星形态
+    doji_result = doji_detector.detect(
+        open_price=event.candlestick.open,
+        high=event.candlestick.high,
+        low=event.candlestick.low,
+        close=event.candlestick.close,
+        volume=event.candlestick.volume,
+        symbol=symbol,
+        timestamp=event.candlestick.timestamp
+    )
+    
+    # 检测倒垂线形态
+    inverted_hammer_result = inverted_hammer_detector.detect(
+        open_price=event.candlestick.open,
+        high=event.candlestick.high,
+        low=event.candlestick.low,
+        close=event.candlestick.close,
+        volume=event.candlestick.volume,
+        symbol=symbol,
+        timestamp=event.candlestick.timestamp
+    )
+    
+    # 如果检测到锤子线形态，发送邮件通知
+    if hammer_result.is_detected:
+        logger.info(f"检测到锤子线形态 - {symbol}, 置信度: {hammer_result.confidence:.2%}")
+        logger.info(f"趋势强度: {hammer_result.additional_info['trend_strength']:.2%}")
+        email_notifier.send_email(f"锤子线形态检测 - {symbol}", hammer_result)
+    
+    # 如果检测到十字星形态，发送邮件通知
+    if doji_result.is_detected:
+        logger.info(f"检测到十字星形态 - {symbol}, 置信度: {doji_result.confidence:.2%}")
+        logger.info(f"趋势强度: {doji_result.additional_info['trend_strength']:.2%}")
+        email_notifier.send_email(f"十字星形态检测 - {symbol}", doji_result)
+    
+    # 如果检测到倒垂线形态，发送邮件通知
+    if inverted_hammer_result.is_detected:
+        logger.info(f"检测到倒垂线形态 - {symbol}, 置信度: {inverted_hammer_result.confidence:.2%}")
+        logger.info(f"趋势强度: {inverted_hammer_result.additional_info['trend_strength']:.2%}")
+        email_notifier.send_email(f"倒垂线形态检测 - {symbol}", inverted_hammer_result)
 
 quote_ctx.set_on_candlestick(on_candlestick)
 quote_ctx.subscribe_candlesticks(SYMBOL, Period.Min_2)
