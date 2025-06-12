@@ -4,7 +4,7 @@ from longport.openapi import Period
 
 
 # ==================股票配置=====================
-SYMBOL = "TSLA.US"
+SYMBOL = "TSLL.US"
 
 
 

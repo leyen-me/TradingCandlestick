@@ -1,3 +1,4 @@
+from .base_pattern import BasePatternDetector
 from .hammer_pattern import HammerPatternDetector
 from .doji_pattern import DojiPatternDetector
 from .inverted_hammer_pattern import InvertedHammerPatternDetector
