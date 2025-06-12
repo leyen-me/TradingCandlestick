@@ -1,5 +1,6 @@
 import logging
 import pymysql
+from pymysql.cursors import DictCursor
 from config import DB_CONFIG
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ class DBManager:
     def query(self, sql, params):
         try:
             conn = self.get_db_connection()
-            with conn.cursor() as cursor:
+            with conn.cursor(DictCursor) as cursor:
                 cursor.execute(sql, params)
                 return cursor.fetchall()
         except Exception as e:

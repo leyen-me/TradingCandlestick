@@ -2,6 +2,7 @@ import sys
 from utils import setup_logging, setup_dotenv
 from data_fetcher import run as data_fetcher_run
 from quant_analyzer import run as quant_analyzer_run
+from group_analyzer import run as group_analyzer_run
 
 setup_logging()
 setup_dotenv()
@@ -11,7 +12,8 @@ if __name__ == "__main__":
     
     commands = {
         None: data_fetcher_run,
-        "-b": quant_analyzer_run
+        "-a": group_analyzer_run,
+        "-b": quant_analyzer_run,
     }
     
     if command in commands:

@@ -28,8 +28,21 @@ class CandlestickDataManager:
     
     def get_candlestick_data(self, symbol: str, period: str = PERIOD):
         sql = """
-                SELECT * FROM t_candlesticks WHERE stock_code = %s AND period = %s ORDER BY timestamp ASC
+                SELECT open, high, low, close, volume, turnover, timestamp 
+                FROM t_candlesticks 
+                WHERE stock_code = %s AND period = %s 
+                ORDER BY timestamp ASC
                 """
         params = (symbol, period)
-        return self.db_manager.query(sql, params)
+        results = self.db_manager.query(sql, params)
+        
+        # 转换时间戳
+        formatted_results = []
+        for row in results:
+            row_dict = dict(row)
+            if isinstance(row_dict['timestamp'], (int, float)):
+                row_dict['timestamp'] = datetime.fromtimestamp(row_dict['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+            formatted_results.append(row_dict)
+            
+        return formatted_results
     

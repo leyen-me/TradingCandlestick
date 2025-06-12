@@ -5,7 +5,7 @@ from longport.openapi import Period
 
 # ==================股票配置=====================
 SYMBOL = "TSLL.US"
-
+DEFAULT_WATCHLIST_NAME = "MY_STOCKS"
 
 
 # ==================K线配置=====================

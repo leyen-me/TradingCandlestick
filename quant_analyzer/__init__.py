@@ -1,6 +1,10 @@
+from datetime import datetime
+import json
 import logging
+import os
 import backtrader as bt
 import pandas as pd
+from openai import OpenAI
 from db import CandlestickDataManager
 from config import SYMBOL, PERIOD
 from patterns import BasePatternDetector
@@ -66,7 +70,8 @@ class MyStrategy(bt.Strategy):
         print(f'{dt.strftime("%Y-%m-%d %H:%M:%S")} {txt}')
 
 
-def run():
+def run1():
+
     start_cash = 100000.0
     # 创建 Cerebro 引擎
     cerebro = bt.Cerebro()
@@ -127,3 +132,51 @@ def run():
         bardown='green', # 下跌蜡烛颜色
         volume=False, # 不显示成交量
     )
+
+def run():
+    candlestick_data_manager = CandlestickDataManager()
+    # 获取数据
+    data = candlestick_data_manager.get_candlestick_data(SYMBOL, PERIOD)
+    dict_data = []
+    for item in data:
+        dict_data.append({
+            "open": float(item['open']),
+            "high": float(item['high']), 
+            "low": float(item['low']),
+            "close": float(item['close']),
+            "volume": float(item['volume']),
+            "datetime": item['timestamp'].strftime("%Y-%m-%d %H:%M:%S"),
+        })
+
+    dict_data = json.dumps(dict_data)
+
+    client = OpenAI(
+        base_url='https://api-inference.modelscope.cn/v1/',
+        api_key=os.getenv("MODELSCOPE_SDK_TOKEN"), # ModelScope Token
+    )
+    # set extra_body for thinking control
+    extra_body = {
+        # enable thinking, set to False to disable
+        "enable_thinking": False,
+        # use thinking_budget to contorl num of tokens used for thinking
+        # "thinking_budget": 4096
+    }
+
+    response = client.chat.completions.create(
+        model='Qwen/Qwen3-235B-A22B',  # ModelScope Model-Id
+        messages=[
+            {
+                'role': 'system',
+                'content': """你是一位短线价格行为分析师，擅长分析股票价格行为，请根据用户提供的K线数据，给出买入信号， 记得要把买入信号的时间给我一下。K线单位时间：2min"""
+            },
+            {
+                'role': 'user',
+                'content': f"""{dict_data}"""
+            }
+        ],
+        stream=False,
+        extra_body=extra_body
+    )
+
+    print(response.choices[0].message.content)
+    
