@@ -13,7 +13,6 @@ class MyStrategy(bt.Strategy):
         self.inverted_hammer_detector = InvertedHammerPatternDetector()
     
     def next(self):
-        
         res = self.hammer_detector.detect(self.data)
         if res.is_detected:
             self.buy(size=0.1)
