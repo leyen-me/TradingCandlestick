@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS `t_candlesticks` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `stock_code` VARCHAR(10) NOT NULL COMMENT '股票代码',
-    `period` VARCHAR(10) NOT NULL COMMENT '周期',
+    `period` VARCHAR(32) NOT NULL COMMENT '周期',
     `is_confirmed` BOOLEAN NOT NULL COMMENT '是否确认',
     `open` DECIMAL(10, 3) NOT NULL COMMENT '开盘价',
     `high` DECIMAL(10, 3) NOT NULL COMMENT '最高价',
