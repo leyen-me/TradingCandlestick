@@ -4,3 +4,4 @@ python-dotenv==1.1.0
 yagmail==0.15.293
 backtrader==1.9.78.123
 pandas==2.0.3
+numpy==1.24.3
