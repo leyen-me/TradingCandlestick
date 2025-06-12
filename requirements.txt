@@ -2,3 +2,4 @@ longport==2.1.12
 pymysql==1.1.1
 python-dotenv==1.1.0
 yagmail==0.15.293
+backtrader==1.9.78.123

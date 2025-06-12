@@ -34,3 +34,15 @@ class DBManager:
                 conn.close()
             except:
                 logger.warning("关闭数据库连接时发生错误")
+    
+    # 查询数据
+    def query(self, sql, params):
+        try:
+            conn = self.get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(sql, params)
+                return cursor.fetchall()
+        except Exception as e:
+            logger.error(f"查询数据时出错: {e}")
+            logger.error("错误详情:", exc_info=True)
+            raise

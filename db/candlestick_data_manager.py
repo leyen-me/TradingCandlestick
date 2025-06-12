@@ -1,3 +1,4 @@
+from datetime import datetime
 from config import PERIOD
 from db.db_manager import DBManager
 from longport.openapi import PushCandlestick
@@ -25,6 +26,10 @@ class CandlestickDataManager:
                     )
         self.db_manager.save(sql, params)
     
-    def get_candlestick_data(self, symbol: str):
-        pass
+    def get_candlestick_data(self, symbol: str, period: str = PERIOD):
+        sql = """
+                SELECT * FROM t_candlesticks WHERE stock_code = %s AND period = %s ORDER BY timestamp ASC
+                """
+        params = (symbol, period)
+        return self.db_manager.query(sql, params)
     
