@@ -101,13 +101,13 @@
         };
 
         React.useEffect(() => {
-          const socketUrl = "ws://" + window.location.host;
-          console.log(socketUrl);
-
-          const socket = io(socketUrl);
+          const socket = io(window.origin);
           socket.on("candlestick", (data) => {
             console.log("接收到数据", data);
-            // candleSeries.current.update(data);
+            candleSeries.current.update({
+              ...data,
+              time: new Date(data.time).getTime(),
+            });
           });
 
           const chartOptions = {
@@ -173,7 +173,7 @@
 
           // 清理函数
           return () => {
-            socket.disconnect()
+            socket.disconnect();
             chart.current.remove();
           };
         }, []);
