@@ -28,10 +28,19 @@ class CandlestickDataManager:
     
     def get_candlestick_data(self, symbol: str, period: str = PERIOD):
         sql = """
-                SELECT open, high, low, close, volume, turnover, timestamp 
-                FROM t_candlesticks 
-                WHERE stock_code = %s AND period = %s 
-                ORDER BY timestamp ASC
+                SELECT open, high, low, close, volume, turnover, timestamp
+                FROM t_candlesticks t1
+                WHERE t1.stock_code = %s
+                AND t1.period = %s
+                AND t1.is_confirmed = 1
+                AND t1.id = (
+                    SELECT MAX(id)
+                    FROM t_candlesticks t2
+                    WHERE t2.stock_code = t1.stock_code
+                        AND t2.period = t1.period
+                        AND t2.timestamp = t1.timestamp
+                )
+                ORDER BY t1.timestamp ASC
                 """
         params = (symbol, period)
         results = self.db_manager.query(sql, params)
