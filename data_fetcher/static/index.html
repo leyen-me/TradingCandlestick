@@ -80,11 +80,20 @@
           return axios.get("/api/candlestick");
         }
 
+        function getPattern(data) {
+          return axios.post("/api/pattern", data);
+        }
+
         const handlePlaybackNext = () => {
           if (isPlaying && playbackIndex < playbackCandlestickData.length) {
             const nextIndex = playbackIndex + 1;
-            candleSeries.current.update(playbackCandlestickData[nextIndex]);
+            const nextCandlestick = playbackCandlestickData[nextIndex]
+            candleSeries.current.update(nextCandlestick);
             setPlaybackIndex(nextIndex);
+
+            getPattern(nextCandlestick).then((res) => {
+              console.log(res);
+            });
           } else {
             setIsPlaying(false);
           }

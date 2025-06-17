@@ -1,11 +1,13 @@
 import logging
 from datetime import datetime
-from longport.openapi import Config, QuoteContext, Period, PushCandlestick
-from flask import Flask, jsonify
+from longport.openapi import Config, QuoteContext, TradeContext, Period, PushCandlestick
+from flask import Flask, jsonify, request
 from flask_socketio import SocketIO, emit
 from config import SYMBOL
 
 from db import CandlestickDataManager
+
+from patterns import CandleData
 from patterns import HammerPatternDetector
 from patterns import DojiPatternDetector
 from patterns import InvertedHammerPatternDetector
@@ -17,11 +19,16 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 socketio = SocketIO(app)
 
-hammer_detector = HammerPatternDetector()
-doji_detector = DojiPatternDetector()
-inverted_hammer_detector = InvertedHammerPatternDetector()
+patterns = [
+    HammerPatternDetector(),
+    # DojiPatternDetector(),
+    # InvertedHammerPatternDetector()
+]
 candlestick_data_manager = CandlestickDataManager()
 email_notifier = EmailNotifier()
+config = Config.from_env()
+quote_ctx = QuoteContext(config)
+trade_ctx = TradeContext(config)
 
 def on_candlestick(symbol: str, event: PushCandlestick):
     # 保存K线数据到数据库
@@ -44,8 +51,24 @@ def index():
 def candlestick():
     return jsonify(candlestick_data_manager.get_candlestick_data(SYMBOL))
 
-config = Config.from_env()
-quote_ctx = QuoteContext(config)
+@app.route('/api/pattern', methods=["POST"])
+def pattern():
+    parmas = request.json
+    for pattern in patterns:
+        pattern_res = pattern.detect(CandleData(open=parmas['open'], high=parmas['high'], low=parmas['low'], close=parmas['close']))
+        if pattern_res.is_detected:
+            return jsonify({
+               "pattern_name":pattern_res.pattern_name,
+               "pattern_desc":pattern_res.pattern_desc,
+               "is_detected":pattern_res.is_detected
+            })
+    return jsonify({
+        "is_detected": False
+    })
+
+
+
+
 
 quote_ctx.set_on_candlestick(on_candlestick)
 quote_ctx.subscribe_candlesticks(SYMBOL, Period.Min_2)
