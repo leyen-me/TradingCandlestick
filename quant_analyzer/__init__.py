@@ -35,9 +35,9 @@ class MyStrategy(bt.Strategy):
             # 计算买入价格
             price = self.data.close[0]
             # 计算止损价格（下跌0.5%）
-            stop_price = price * (1 - 0.0035)
+            stop_price = price * (1 - 0.01)
             # 计算止盈价格（上涨0.5%）
-            limit_price = price * (1 + 0.0035)
+            limit_price = price * (1 + 0.01)
             
             # 计算仓位大小（使用总资金的80%）
             cash_to_use = self.broker.getcash() * 0.8
@@ -70,7 +70,7 @@ class MyStrategy(bt.Strategy):
         print(f'{dt.strftime("%Y-%m-%d %H:%M:%S")} {txt}')
 
 
-def run1():
+def run():
 
     start_cash = 100000.0
     # 创建 Cerebro 引擎
@@ -133,7 +133,7 @@ def run1():
         volume=False, # 不显示成交量
     )
 
-def run():
+def run1():
     candlestick_data_manager = CandlestickDataManager()
     # 获取数据
     data = candlestick_data_manager.get_candlestick_data(SYMBOL, PERIOD)

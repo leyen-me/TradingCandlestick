@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>React App Template</title>
+    <!-- React and ReactDOM from CDN -->
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+    ></script>
+    <!-- Babel Standalone -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@5.0.7/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://unpkg.com/axios@1.9.0/dist/axios.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+      }
+
+      #root {
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      function App() {
+        const chartContainerRef = React.useRef(null);
+        const resizeObserver = React.useRef();
+        const chart = React.useRef(null);
+
+        function setFontFamily(fontFamily) {
+          chart.current.applyOptions({
+            layout: {
+              fontFamily: fontFamily,
+            },
+          });
+        }
+
+        function getCandlestickData() {
+          return axios.get("/api/candlestick");
+        }
+
+        React.useEffect(() => {
+          const chartOptions = {
+            width: chartContainerRef.current.clientWidth,
+            height: chartContainerRef.current.clientHeight,
+            layout: {
+              backgroundColor: { type: "solid", color: "black" },
+              textColor: "white",
+            },
+            grid: {
+              vertLines: {
+                color: "#334158",
+              },
+              horzLines: {
+                color: "#334158",
+              },
+            },
+            crosshair: {
+              mode: LightweightCharts.CrosshairMode.Normal,
+            },
+            priceScale: {
+              borderColor: "#485c7b",
+            },
+            timeScale: {
+              borderColor: "#485c7b",
+            },
+            localization: {
+              timeFormatter: (timestamp) => {
+                const date = new Date(timestamp);
+                const year = date.getFullYear().toString();
+                const month = date.getMonth().toString().padStart(2, "0");
+                const day = date.getDate().toString().padStart(2, "0");
+                const hours = date.getHours().toString().padStart(2, "0");
+                const minutes = date.getMinutes().toString().padStart(2, "0");
+                return `${year}-${month}-${day} ${hours}:${minutes}`;
+              },
+            },
+          };
+
+          // 创建图表实例
+          chart.current = LightweightCharts.createChart(
+            chartContainerRef.current,
+            chartOptions
+          );
+
+          const candleSeries = chart.current.addSeries(
+            LightweightCharts.CandlestickSeries,
+            {
+              upColor: "#26a69a",
+              downColor: "#ef5350",
+              borderVisible: false,
+              wickUpColor: "#26a69a",
+              wickDownColor: "#ef5350",
+            }
+          );
+
+          // 示例K线数据
+          getCandlestickData().then((res) => {
+            const data = res.data.map((item) => {
+              return {
+                ...item,
+                time: new Date(item.time).getTime(),
+              };
+            });
+            candleSeries.setData(data);
+          });
+
+          // 设置字体
+          setFontFamily("Arial");
+          // 清理函数
+          return () => {
+            chart.current.remove();
+          };
+        }, []);
+
+        React.useEffect(() => {
+          resizeObserver.current = new ResizeObserver((entries) => {
+            const { width, height } = entries[0].contentRect;
+            chart.current.applyOptions({ width, height });
+            setTimeout(() => {
+              chart.current.timeScale().fitContent();
+            }, 0);
+          });
+
+          resizeObserver.current.observe(chartContainerRef.current);
+
+          return () => resizeObserver.current.disconnect();
+        }, []);
+
+        return (
+          <div
+            ref={chartContainerRef}
+            style={{ width: "100%", height: "100%" }}
+          />
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>

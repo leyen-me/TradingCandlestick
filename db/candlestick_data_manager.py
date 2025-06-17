@@ -40,9 +40,14 @@ class CandlestickDataManager:
         formatted_results = []
         for row in results:
             row_dict = dict(row)
-            if isinstance(row_dict['timestamp'], (int, float)):
-                row_dict['timestamp'] = datetime.fromtimestamp(row_dict['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+            row_dict['time'] = row_dict['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+            row_dict['open'] = float(row_dict['open'])
+            row_dict['high'] = float(row_dict['high'])
+            row_dict['low'] = float(row_dict['low'])
+            row_dict['close'] = float(row_dict['close'])
+            row_dict['volume'] = float(row_dict['volume'])
+            row_dict['turnover'] = float(row_dict['turnover'])
             formatted_results.append(row_dict)
-            
+        
         return formatted_results
     
