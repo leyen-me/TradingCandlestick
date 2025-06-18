@@ -2,7 +2,7 @@ from datetime import datetime
 from config import PERIOD
 from db.db_manager import DBManager
 from longport.openapi import PushCandlestick
-
+from utils import is_not_empty
 
 class CandlestickDataManager:
     
@@ -26,23 +26,67 @@ class CandlestickDataManager:
                     )
         self.db_manager.save(sql, params)
     
-    def get_candlestick_data(self, symbol: str, period: str = PERIOD):
-        sql = """
-                SELECT open, high, low, close, volume, turnover, timestamp
-                FROM t_candlesticks t1
-                WHERE t1.stock_code = %s
-                AND t1.period = %s
-                AND t1.is_confirmed = 1
-                AND t1.id = (
-                    SELECT MAX(id)
-                    FROM t_candlesticks t2
-                    WHERE t2.stock_code = t1.stock_code
-                        AND t2.period = t1.period
-                        AND t2.timestamp = t1.timestamp
-                )
-                ORDER BY t1.timestamp ASC
-                """
-        params = (symbol, period)
+    def get_candlestick_data(self, symbol: str, period: str = PERIOD, realtime: bool=False, startTime:str=None, endTime:str=None):
+        sql = ""
+        params = None
+        if is_not_empty(startTime) and is_not_empty(endTime):
+            sql = """
+                    SELECT open, high, low, close, volume, turnover, timestamp
+                    FROM t_candlesticks t1
+                    WHERE t1.stock_code = %s
+                    AND t1.period = %s
+                    AND t1.is_confirmed = 1
+                    AND t1.timestamp >= %s
+                    AND t1.timestamp <= %s
+                    AND t1.id = (
+                        SELECT MAX(id)
+                        FROM t_candlesticks t2
+                        WHERE t2.stock_code = t1.stock_code
+                            AND t2.period = t1.period
+                            AND t2.timestamp = t1.timestamp
+                    )
+                    ORDER BY t1.timestamp ASC
+                    """
+            params = (symbol, period, startTime, endTime)
+        else:
+            sql = """
+                    SELECT open, high, low, close, volume, turnover, timestamp
+                    FROM t_candlesticks t1
+                    WHERE t1.stock_code = %s
+                    AND t1.period = %s
+                    AND t1.is_confirmed = 1
+                    AND t1.id = (
+                        SELECT MAX(id)
+                        FROM t_candlesticks t2
+                        WHERE t2.stock_code = t1.stock_code
+                            AND t2.period = t1.period
+                            AND t2.timestamp = t1.timestamp
+                    )
+                    ORDER BY t1.timestamp ASC
+                    """
+            params = (symbol, period)
+        if realtime:
+            if is_not_empty(startTime) and is_not_empty(endTime):
+                sql = """
+                    SELECT open, high, low, close, volume, turnover, timestamp 
+                    FROM t_candlesticks 
+                    WHERE stock_code = %s 
+                    AND period = %s
+                    AND timestamp >= %s
+                    AND timestamp <= %s
+                    ORDER BY timestamp ASC
+                    """
+                params = (symbol, period, startTime, endTime)
+            else:
+                sql = """
+                    SELECT open, high, low, close, volume, turnover, timestamp 
+                    FROM t_candlesticks 
+                    WHERE stock_code = %s 
+                    AND period = %s
+                    ORDER BY timestamp ASC
+                    """
+                params = (symbol, period)
+
         results = self.db_manager.query(sql, params)
         
         # 转换时间戳
@@ -57,6 +101,6 @@ class CandlestickDataManager:
             row_dict['volume'] = float(row_dict['volume'])
             row_dict['turnover'] = float(row_dict['turnover'])
             formatted_results.append(row_dict)
-        
+
         return formatted_results
     

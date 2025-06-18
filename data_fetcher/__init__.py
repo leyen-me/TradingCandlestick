@@ -31,6 +31,8 @@ quote_ctx = QuoteContext(config)
 trade_ctx = TradeContext(config)
 
 def on_candlestick(symbol: str, event: PushCandlestick):
+    if event.candlestick.volume == 0:
+       return
     # 保存K线数据到数据库
     candlestick_data_manager.save_candlestick_data(symbol, event)
     socketio.emit('candlestick', {'symbol': symbol, 'data': {
@@ -47,9 +49,16 @@ def on_candlestick(symbol: str, event: PushCandlestick):
 def index():
     return app.send_static_file('index.html')
 
-@app.route('/api/candlestick')
+@app.route('/api/candlestick', methods=["POST"])
 def candlestick():
-    return jsonify(candlestick_data_manager.get_candlestick_data(SYMBOL))
+    parmas = request.json
+    time = parmas['time']
+    startTime = parmas['startTime']
+    endTime = parmas['endTime']
+    if time == "realtime":
+        return jsonify(candlestick_data_manager.get_candlestick_data(SYMBOL, realtime=True, startTime=startTime, endTime=endTime))
+    else:
+        return jsonify(candlestick_data_manager.get_candlestick_data(SYMBOL, realtime=False, startTime=startTime, endTime=endTime))
 
 @app.route('/api/pattern', methods=["POST"])
 def pattern():
@@ -70,7 +79,7 @@ def pattern():
 
 
 
-quote_ctx.set_on_candlestick(on_candlestick)
+# quote_ctx.set_on_candlestick(on_candlestick)
 quote_ctx.subscribe_candlesticks(SYMBOL, Period.Min_2)
 
 logger.info("启动成功，当前北京时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))

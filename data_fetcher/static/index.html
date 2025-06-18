@@ -58,11 +58,53 @@
         background-color: #1a202c;
         color: #cbd5e1;
       }
+
+      .buy {
+        background-color: #e53e3e;
+        color: #fff;
+      }
+      .buy:hover,
+      .buy:focus {
+        background-color: #c53030;
+        color: #ffeaea;
+      }
+      .buy:active {
+        background-color: #9b2c2c;
+        color: #feb2b2;
+      }
+
+      .sell {
+        background-color: #38a169;
+        color: #fff;
+      }
+      .sell:hover,
+      .sell:focus {
+        background-color: #2f855a;
+        color: #e6fffa;
+      }
+      .sell:active {
+        background-color: #276749;
+        color: #c6f6d5;
+      }
+
+      .close {
+        background-color: #718096;
+        color: #fff;
+      }
+      .close:hover,
+      .close:focus {
+        background-color: #4a5568;
+        color: #e2e8f0;
+      }
+      .close:active {
+        background-color: #2d3748;
+        color: #cbd5e1;
+      }
     </style>
   </head>
   <body>
     <div id="root"></div>
-    <script type="text/babel">
+    <script type="text/babel" data-type="module">
       function App() {
         const chartContainerRef = React.useRef(null);
         const resizeObserver = React.useRef();
@@ -72,22 +114,56 @@
         // K线回放
         const [isPlaying, setIsPlaying] = React.useState(false);
         const [playbackIndex, setPlaybackIndex] = React.useState(0);
+        const [autoPlay, setAutoPlay] = React.useState(false);
+        const [startPlaybackTime, setStartPlaybackTime] = React.useState("");
+        const [endPlaybackTime, setEndPlaybackTime] = React.useState("");
         // K线回放数据
         const [playbackCandlestickData, setPlaybackCandlestickData] =
           React.useState([]);
 
-        function getCandlestickData() {
-          return axios.get("/api/candlestick");
+        function getCandlestickData(t) {
+          return axios.post(
+            "/api/candlestick",
+            {
+              time: t ? "realtime" : "",
+              startTime: startPlaybackTime,
+              endTime: endPlaybackTime,
+            },
+            {
+              timeout: 0,
+            }
+          );
         }
 
         function getPattern(data) {
           return axios.post("/api/pattern", data);
         }
 
+        function initData(success) {
+          getCandlestickData().then((res) => {
+            const data = res.data.map((item) => {
+              return {
+                ...item,
+                time: new Date(item.time).getTime(),
+              };
+            });
+            candleSeries.current.setData(data);
+            if (success && typeof success === "function") {
+              success();
+            }
+          });
+        }
+
+        function resetPlayback() {
+          setAutoPlay(false);
+          setIsPlaying(false);
+          setPlaybackIndex(0);
+        }
+
         const handlePlaybackNext = () => {
           if (isPlaying && playbackIndex < playbackCandlestickData.length) {
             const nextIndex = playbackIndex + 1;
-            const nextCandlestick = playbackCandlestickData[nextIndex]
+            const nextCandlestick = playbackCandlestickData[nextIndex];
             candleSeries.current.update(nextCandlestick);
             setPlaybackIndex(nextIndex);
 
@@ -112,11 +188,12 @@
         React.useEffect(() => {
           const socket = io(window.origin);
           socket.on("candlestick", (data) => {
-            console.log("接收到数据", data);
-            candleSeries.current.update({
-              ...data,
-              time: new Date(data.time).getTime(),
-            });
+            if (!isPlaying) {
+              candleSeries.current.update({
+                ...data,
+                time: new Date(data.time).getTime(),
+              });
+            }
           });
 
           const chartOptions = {
@@ -170,15 +247,7 @@
           );
 
           // 示例K线数据
-          getCandlestickData().then((res) => {
-            const data = res.data.map((item) => {
-              return {
-                ...item,
-                time: new Date(item.time).getTime(),
-              };
-            });
-            candleSeries.current.setData(data);
-          });
+          initData();
 
           // 清理函数
           return () => {
@@ -201,8 +270,17 @@
           return () => resizeObserver.current.disconnect();
         }, []);
 
-        const handlePlayback = () => {
-          console.log("启动K线回放");
+        let interval = null;
+
+        const handlePlayback = (auto) => {
+          if (isPlaying || autoPlay) {
+            initData();
+            resetPlayback();
+            if (interval) {
+              clearInterval(interval);
+            }
+            return;
+          }
           // 清空K线
           candleSeries.current.setData([]);
           // 设置K线回放状态
@@ -210,16 +288,39 @@
           // 设置K线回放索引
           setPlaybackIndex(0);
 
-          getCandlestickData().then((res) => {
-            const data = res.data.map((item) => {
-              return {
-                ...item,
-                time: new Date(item.time).getTime(),
-              };
+          if (auto) {
+            setAutoPlay(true);
+            getCandlestickData(true).then((res) => {
+              const data = res.data.map((item) => {
+                return {
+                  ...item,
+                  time: new Date(item.time).getTime(),
+                };
+              });
+              setPlaybackCandlestickData(data);
+
+              let i = 0;
+              candleSeries.current.update(data[i]);
+              interval = setInterval(() => {
+                i++;
+                if (i <= data.length - 1) {
+                  const nextCandlestick = data[i];
+                  candleSeries.current.update(nextCandlestick);
+                }
+              }, 10);
             });
-            // 设置K线回放数据
-            setPlaybackCandlestickData(data);
-          });
+          } else {
+            getCandlestickData().then((res) => {
+              const data = res.data.map((item) => {
+                return {
+                  ...item,
+                  time: new Date(item.time).getTime(),
+                };
+              });
+              // 设置K线回放数据
+              setPlaybackCandlestickData(data);
+            });
+          }
         };
 
         const handleBuy = () => {
@@ -262,27 +363,91 @@
                 </p>
               </div>
               <div className="card">
-                <div className="button" onClick={handlePlayback}>
-                  启动K线回放
-                </div>
-                <div className="button" onClick={handlePlaybackPrev}>
-                  上一个
-                </div>
-                <div className="button" onClick={handlePlaybackNext}>
-                  下一个
-                </div>
+                <h3>{isPlaying ? "K线回放" : "正常模式"}</h3>
+                <input
+                  type="datetime-local"
+                  value={startPlaybackTime}
+                  onChange={(e) =>
+                    setStartPlaybackTime(e.target.value.replace("T", " "))
+                  }
+                />
+                <input
+                  type="datetime-local"
+                  style={{ marginLeft: "4px" }}
+                  value={endPlaybackTime}
+                  onChange={(e) =>
+                    setEndPlaybackTime(e.target.value.replace("T", " "))
+                  }
+                />
+
+                {!isPlaying ? (
+                  <>
+                    <div
+                      className="button"
+                      onClick={() => handlePlayback(false)}
+                    >
+                      手动回放
+                    </div>
+                    <div
+                      className="button"
+                      onClick={() => handlePlayback(true)}
+                      style={{ marginLeft: "4px" }}
+                    >
+                      自动回放
+                    </div>
+                  </>
+                ) : (
+                  <div className="button" onClick={handlePlayback}>
+                    正常模式
+                  </div>
+                )}
+                {isPlaying && !autoPlay ? (
+                  <>
+                    <div
+                      className="button"
+                      style={{ marginLeft: "4px" }}
+                      onClick={handlePlaybackPrev}
+                    >
+                      上一根
+                    </div>
+                    <div
+                      className="button"
+                      style={{ marginLeft: "4px" }}
+                      onClick={handlePlaybackNext}
+                    >
+                      下一根
+                    </div>
+                  </>
+                ) : (
+                  <></>
+                )}
               </div>
-              <div className="card">
-                <div className="button buy" onClick={handleBuy}>
-                  做多
+              {!isPlaying && (
+                <div className="card">
+                  <h3>快捷操作</h3>
+                  <div
+                    className="button buy"
+                    style={{ marginLeft: "4px" }}
+                    onClick={handleBuy}
+                  >
+                    做多
+                  </div>
+                  <div
+                    className="button sell"
+                    style={{ marginLeft: "4px" }}
+                    onClick={handleSell}
+                  >
+                    做空
+                  </div>
+                  <div
+                    className="button close"
+                    style={{ marginLeft: "4px" }}
+                    onClick={handleClose}
+                  >
+                    平仓
+                  </div>
                 </div>
-                <div className="button sell" onClick={handleSell}>
-                  做空
-                </div>
-                <div className="button close" onClick={handleClose}>
-                  平仓
-                </div>
-              </div>
+              )}
             </div>
           </div>
         );
