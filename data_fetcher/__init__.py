@@ -76,10 +76,7 @@ def pattern():
     })
 
 
-
-
-
-# quote_ctx.set_on_candlestick(on_candlestick)
+quote_ctx.set_on_candlestick(on_candlestick)
 quote_ctx.subscribe_candlesticks(SYMBOL, Period.Min_2)
 
 logger.info("启动成功，当前北京时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
