@@ -1,14 +1,25 @@
 from datetime import datetime
 from config import PERIOD
 from db.db_manager import DBManager
-from longport.openapi import PushCandlestick
+from longport.openapi import PushCandlestick, PushQuote
 from utils import is_not_empty
 
 class CandlestickDataManager:
     
     def __init__(self):
         self.db_manager = DBManager()
-    
+
+    def save_quote_data(self, symbol:str, event: PushQuote):
+        sql = """
+                INSERT INTO t_quotes (
+                    stock_code, last_done, open, high, low, volume, turnover, trade_status, current_volume, current_turnover, timestamp
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+        params = (
+                        symbol, event.last_done, event.open, event.high, event.low, event.volume, event.turnover, event.trade_status, event.current_volume, event.current_turnover, event.timestamp
+                    )
+        self.db_manager.save(sql, params)
+
     # 保存K线数据
     def save_candlestick_data(self, symbol: str, event: PushCandlestick):
         sql = """

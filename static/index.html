@@ -188,7 +188,7 @@
         React.useEffect(() => {
           const socket = io(window.origin);
           socket.on("candlestick", (data) => {
-            if (!isPlaying) {
+            if (!isPlaying && candleSeries.current) {
               candleSeries.current.update({
                 ...data,
                 time: new Date(data.time).getTime(),
