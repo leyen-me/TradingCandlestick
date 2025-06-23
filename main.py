@@ -1,7 +1,8 @@
+from decimal import ROUND_DOWN, ROUND_UP, Decimal
 import logging
 from datetime import datetime
-from longport.openapi import Config, QuoteContext, TradeContext
-from longport.openapi import Period, PushCandlestick, PushQuote, SubType
+from longport.openapi import Config, QuoteContext, TradeContext, PushOrderChanged, OrderStatus, OrderType
+from longport.openapi import Period, PushCandlestick, PushQuote, SubType, TopicType, OrderSide, TimeInForceType
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
 
@@ -32,6 +33,20 @@ email_notifier = EmailNotifier()
 config = Config.from_env()
 quote_ctx = QuoteContext(config)
 trade_ctx = TradeContext(config)
+
+def on_order_changed(event: PushOrderChanged):
+    if str(event.side) == "OrderSide.Buy" and  str(event.status) == "OrderStatus.Filled":
+        print("======================有新的买入订单======================")
+        # 当新订单提交完成之后，手动为用户设置止损
+        trade_ctx.submit_order(
+            event.symbol,
+            OrderType.MIT,
+            OrderSide.Sell,
+            event.executed_quantity,
+            TimeInForceType.GoodTilCanceled,
+            trigger_price=event.submitted_price * Decimal('0.9').quantize(Decimal('0.01'), rounding=ROUND_DOWN),
+            remark="程序止损",
+        )
 
 def on_quote(symbol: str, event: PushQuote):
     if event.current_volume == 0:
@@ -86,9 +101,14 @@ def pattern():
 quote_ctx.set_on_candlestick(on_candlestick)
 quote_ctx.set_on_quote(on_quote)
 
+trade_ctx.set_on_order_changed(on_order_changed)
+
 
 quote_ctx.subscribe([SYMBOL], [SubType.Quote], is_first_push=True)
 quote_ctx.subscribe_candlesticks(SYMBOL, Period.Min_2)
+
+trade_ctx.subscribe([TopicType.Private])
+
 
 logger.info("启动成功，当前北京时间：%s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 socketio.run(app, host='0.0.0.0', port=80, debug=True, allow_unsafe_werkzeug=True)
