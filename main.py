@@ -30,6 +30,7 @@ patterns = [
 ]
 candlestick_data_manager = CandlestickDataManager()
 email_notifier = EmailNotifier()
+
 config = Config.from_env()
 quote_ctx = QuoteContext(config)
 trade_ctx = TradeContext(config)
